@@ -1,5 +1,9 @@
 use num::Complex;
 use std::str::FromStr;
+use image::{ExtendedColorType, ImageEncoder};
+use image::codecs::png::PngEncoder;
+use std::fs::File;
+use std::env;
 
 fn complex_square_add_loop(c: Complex<f64>) {
     let mut z = Complex { re: 0.0, im: 0.0 };
@@ -143,6 +147,33 @@ fn render(pixels: &mut [u8], bounds: (usize, usize), upper_left: Complex<f64>, l
     }
 }
 
+/// Write the buffer `pixels`, whose dimensions are given by `bounds`, to the
+/// file named `filename`.
+fn write_image(filename: &str, pixels: &[u8], bounds: (usize, usize)) -> Result<(), image::error::ImageError> {
+    let output = File::create(filename)?;
+
+    let encoder = PngEncoder::new(output);
+
+    encoder.write_image(&pixels, bounds.0 as u32, bounds.1 as u32, ExtendedColorType::L8)?;
+
+    Ok(())
+}
 fn main() {
-    println!("Hello, world!");
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() != 5 {
+        eprintln!("Usage: {} FILE PIXELS UPPERLEFT LOWERRIGHT", args[0]);
+        eprintln!("Example: {} mandel.png 1000*750 -1.20,0.35 -1,0.20", args[0]);
+        std::process::exit(1);
+    }
+
+    let bounds = parse_pair(&args[2], 'x').expect("error parsing image dimensions");
+    let upper_left = parse_complex(&args[3]).expect("error parsing upper left corne point");
+    let lower_right = parse_complex(&args[4]).expect("error parsing lower right corner point");
+
+    let mut pixels = vec![0; bounds.0 * bounds.1];
+
+    render(&mut pixels, bounds, upper_left, lower_right);
+
+    write_image(&args[1], &pixels, bounds).expect("error writing PNG file");
 }
